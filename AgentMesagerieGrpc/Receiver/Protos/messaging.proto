@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+option csharp_namespace = "MessagingAgent.Contracts";
+package messaging;
+
+import "google/protobuf/timestamp.proto";
+
+// ======================================================================
+//  Contractul comun (acelasi fisier in Broker, Sender si Receiver)
+// ======================================================================
+
+// Un mesaj stocat si livrat de broker
+message ChatMessage {
+  string id = 1;
+  string sender_id = 2;
+  string topic = 3;
+  string content = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// ------------------------------ PUBLISHER (port 5000) ------------------------------
+
+message PublishRequest {
+  string sender_id = 1;
+  string topic = 2;
+  string content = 3;
+}
+
+message PublishReply {
+  bool accepted = 1;       // false = mesaj respins (validare)
+  string error = 2;        // motivul respingerii
+  string message_id = 3;
+  int32 subscribers = 4;   // cati abonati are topicul
+  int32 delivered = 5;     // cati dintre ei sunt online si au primit mesajul acum
+}
+
+service Publisher {
+  // Apel simplu (unary): cerere -> raspuns
+  rpc Publish (PublishRequest) returns (PublishReply);
+}
+
+// ----------------------------- SUBSCRIBER (port 5001) -----------------------------
+
+message ConnectRequest {
+  string subscriber_id = 1;
+}
+
+message TopicRequest {
+  string subscriber_id = 1;
+  string topic = 2;
+}
+
+message StatusReply {
+  bool ok = 1;
+  string error = 2;
+}
+
+message ListTopicsRequest {
+  string subscriber_id = 1;
+}
+
+message TopicInfo {
+  string name = 1;
+  int32 messages = 2;      // cate mesaje are topicul
+  int32 subscribers = 3;   // cati abonati are
+  bool subscribed = 4;     // subscriber-ul care a cerut lista e deja abonat?
+}
+
+message ListTopicsReply {
+  repeated TopicInfo topics = 1;
+}
+
+service Subscriber {
+  // Flux de la server (server streaming): ramane deschis cat timp subscriber-ul e conectat;
+  // broker-ul trimite intai istoricul topicurilor salvate, apoi mesajele noi.
+  rpc Connect (ConnectRequest) returns (stream ChatMessage);
+
+  // Apeluri simple (unary)
+  rpc Subscribe (TopicRequest) returns (StatusReply);
+  rpc Unsubscribe (TopicRequest) returns (StatusReply);
+  rpc ListTopics (ListTopicsRequest) returns (ListTopicsReply);
+}

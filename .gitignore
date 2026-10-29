@@ -1,0 +1,6 @@
+.vs/
+bin/
+obj/
+*.user
+broker-data/
+failed_messages.json
